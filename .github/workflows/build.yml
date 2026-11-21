@@ -3,14 +3,14 @@ name: CI & Debug Build
 on:
   workflow_dispatch:
   push:
-    branches: [ '**' ]
+    branches: [ "**" ]
     paths-ignore:
       - 'README.md'
       - 'fastlane/**'
       - 'assets/**'
       - '.github/**/*.md'
   pull_request:
-    branches: [ '**' ]
+    branches: [ "**" ]
 
 jobs:
   build_debug:
@@ -57,7 +57,16 @@ jobs:
           DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
           ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
         run: |
-          ./gradlew assembleUniversalGmsDebug --no-configuration-cache --console=plain --warning-mode summary
+          set -o pipefail
+          ./gradlew assembleUniversalGmsDebug --no-configuration-cache --console=plain --warning-mode summary 2>&1 | tee build.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            echo "=== LAST 60 LINES ==="
+            tail -n 60 build.log
+            echo "=== ERROR MATCHES ==="
+            grep -nE "(^e:|error:|Exception|FAILURE:|What went wrong:|> Task .* FAILED)" build.log | tail -n 40 || true
+          fi
+          exit "$EXIT_CODE"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
